@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+from openai import OpenAI
+
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -911,3 +914,182 @@ if recommended_career:
         file_name="SkillBridge_AI_Career_Report.pdf",
         mime="application/pdf"
     )
+
+# ==========================================
+# 🤖 SKILLBRIDGE-AI CAREER ASSISTANT
+# ==========================================
+
+st.divider()
+
+st.subheader("🤖 SkillBridge-AI Career Assistant")
+
+st.write(
+    "Ask me anything about your career, skills, learning roadmap, "
+    "projects, internships, or your recommended career."
+)
+
+# Create chat history
+if "chat_messages" not in st.session_state:
+    st.session_state.chat_messages = []
+
+# Display previous messages
+for message in st.session_state.chat_messages:
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
+
+# Chat input
+user_question = st.chat_input(
+    "Ask SkillBridge-AI anything..."
+)
+
+if user_question:
+
+    # Save user's question
+    st.session_state.chat_messages.append(
+        {
+            "role": "user",
+            "content": user_question
+        }
+    )
+
+    # Display user's question
+    with st.chat_message("user"):
+        st.write(user_question)
+
+    # Get current SkillBridge information
+    current_career = (
+        recommended_career
+        if "recommended_career" in locals() and recommended_career
+        else "Not determined yet"
+    )
+
+    current_skills = (
+        ", ".join(user_skills)
+        if "user_skills" in locals()
+        else "Not provided"
+    )
+
+    current_match = (
+        f"{match_percentage:.1f}%"
+        if "match_percentage" in locals()
+        and recommended_career
+        else "Not available"
+    )
+
+    current_matching = (
+        ", ".join(matching_skills)
+        if "matching_skills" in locals()
+        and recommended_career
+        else "None"
+    )
+
+    current_missing = (
+        ", ".join(missing_skills)
+        if "missing_skills" in locals()
+        and recommended_career
+        else "Not available"
+    )
+
+    career_context = f"""
+Student's current skills:
+{current_skills}
+
+Recommended career:
+{current_career}
+
+Skill match:
+{current_match}
+
+Matching skills:
+{current_matching}
+
+Skills to improve:
+{current_missing}
+"""
+
+    # Prepare conversation
+    conversation = []
+
+    for message in st.session_state.chat_messages:
+        conversation.append(
+            {
+                "role": message["role"],
+                "content": message["content"]
+            }
+        )
+
+    # Ask OpenAI
+    try:
+
+        response = client.responses.create(
+            model="gpt-5.6-luna",
+
+            instructions=f"""
+You are SkillBridge-AI, an intelligent AI career mentor
+for college students.
+
+Your job is to help students with:
+
+- Career guidance
+- Skill gaps
+- Learning roadmaps
+- AI/ML careers
+- Programming
+- Projects
+- Internships
+- Resume improvement
+- Career comparisons
+
+Use the student's SkillBridge-AI information below
+to personalize your answers.
+
+{career_context}
+
+Important rules:
+
+1. Give practical and actionable advice.
+2. Do not invent skills the student has.
+3. If the student asks about their skill gap,
+   use the information provided above.
+4. Keep answers understandable for a beginner.
+5. When useful, give step-by-step recommendations.
+6. Encourage projects and practical learning.
+7. Do not guarantee internships or jobs.
+8. Keep responses focused and useful.
+""",
+
+            input=conversation
+        )
+
+        assistant_answer = response.output_text
+
+    except Exception as e:
+
+        st.error(
+            f"AI service error: {type(e)._name_}: {e}"
+        )
+
+        assistant_answer = (
+            "I couldn't connect to the AI service right now. "
+            "Please check your OpenAI API configuration."
+        )
+
+    # Display AI response
+    with st.chat_message("assistant"):
+        st.write(assistant_answer)
+
+    # Save AI response
+    st.session_state.chat_messages.append(
+        {
+            "role": "assistant",
+            "content": assistant_answer
+        }
+    )
+
+
+# Clear chat button
+if st.session_state.chat_messages:
+
+    if st.button("🗑️ Clear Chat"):
+        st.session_state.chat_messages = []
+        st.rerun()
