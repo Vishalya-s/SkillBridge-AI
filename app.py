@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 from openai import OpenAI
+from auth import create_database, register_user, login_user, reset_password
+
+create_database()
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
@@ -27,6 +30,92 @@ st.write(
     "Discover suitable career paths based on your current skills "
     "and identify the skills you can learn next. "
 )
+
+# ==========================================
+# LOGIN SYSTEM
+# ==========================================
+
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.user_name = ""
+
+if "show_reset" not in st.session_state:
+    st.session_state.show_reset = False
+
+
+# Login page
+if not st.session_state.logged_in:
+
+    st.title("🔐 SkillBridge-AI")
+    st.subheader("Login to continue")
+
+    email = st.text_input("Email")
+    password = st.text_input(
+        "Password",
+        type="password"
+    )
+
+    if st.button("Login"):
+
+        user = login_user(email, password)
+
+        if user:
+            st.session_state.logged_in = True
+            st.session_state.user_name = user[0]
+            st.rerun()
+
+        else:
+            st.error("Invalid email or password.")
+
+    if st.button("Forgot Password?"):
+        st.session_state.show_reset = True
+
+    # Only show this after Forgot Password is clicked
+    if st.session_state.show_reset:
+
+        st.subheader("Reset Password")
+
+        reset_email = st.text_input(
+            "Enter your email",
+            key="reset_email"
+        )
+
+        new_password = st.text_input(
+            "Enter new password",
+            type="password",
+            key="new_password"
+        )
+
+        if st.button("Reset Password"):
+
+            success = reset_password(
+                reset_email,
+                new_password
+            )
+
+            if success:
+                st.success(
+                    "Password reset successfully! You can now login."
+                )
+                st.session_state.show_reset = False
+
+            else:
+                st.error("No account found with that email.")
+
+    st.stop()
+
+
+# Logged-in user
+st.sidebar.write(
+    f"Welcome, {st.session_state.user_name}!"
+)
+
+if st.sidebar.button("Logout"):
+
+    st.session_state.logged_in = False
+    st.session_state.user_name = ""
+
+    st.rerun()
 
 with st.expander("About this project"):
     st.write(
